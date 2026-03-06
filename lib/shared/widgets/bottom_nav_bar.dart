@@ -40,8 +40,8 @@ class BottomNavBar extends StatelessWidget {
                 primary: primary,
               ),
               _NavItem(
-                icon: Icons.add_circle_outline,
-                label: 'Add Task',
+                icon: Icons.checklist,
+                label: 'My Tasks',
                 isActive: currentIndex == 1,
                 onTap: () => onTap(1),
                 primary: primary,

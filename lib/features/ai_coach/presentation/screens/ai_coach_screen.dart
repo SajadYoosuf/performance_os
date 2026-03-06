@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:app/core/theme/app_colors.dart';
 import 'package:app/core/theme/app_text_styles.dart';
 import 'package:app/core/genui/genui_setup.dart';
+import 'package:app/features/tasks/presentation/providers/task_provider.dart';
+import 'package:app/features/dashboard/presentation/providers/dashboard_provider.dart';
 
-/// AI Coach screen — powered by GenUI.
-///
-/// Uses [GenUiConversation] + [GenUiSurface] to render dynamic,
-/// AI-generated UI in real time based on the user's conversation.
+/// AI Coach screen — GenUI + RAG context + Speech-to-Text voice input.
 class AICoachScreen extends StatefulWidget {
   const AICoachScreen({super.key});
   @override
@@ -15,17 +16,107 @@ class AICoachScreen extends StatefulWidget {
 }
 
 class _AICoachScreenState extends State<AICoachScreen> {
-  late final GenUiConversation _conversation;
+  GenUiConversation? _conversation;
   final _inputController = TextEditingController();
   final _surfaceIds = <String>[];
   final _textResponses = <String>[];
   bool _isLoading = false;
   String? _error;
 
+  // Speech-to-text
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+  bool _speechAvailable = false;
+  String _lastWords = '';
+
   @override
   void initState() {
     super.initState();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onStatus: (status) {
+          if (mounted) {
+            setState(() {
+              _isListening = _speech.isListening;
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+            });
+          }
+        },
+      );
+    } catch (_) {
+      _speechAvailable = false;
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _startListening() {
+    if (!_speechAvailable || _isListening) return;
+    _speech.listen(
+      onResult: (result) {
+        setState(() {
+          _lastWords = result.recognizedWords;
+          _inputController.text = _lastWords;
+          _inputController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _lastWords.length),
+          );
+        });
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+      ),
+    );
+    setState(() => _isListening = true);
+  }
+
+  void _stopListening() {
+    _speech.stop();
+    setState(() => _isListening = false);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _initConversation();
+  }
+
+  void _initConversation() {
+    _conversation?.dispose();
+
+    final taskProvider = context.read<TaskProvider>();
+    final dashboardProvider = context.read<DashboardProvider>();
+
+    final contextBuf = StringBuffer();
+    contextBuf.writeln(taskProvider.buildTaskContextForAI());
+    contextBuf.writeln();
+    contextBuf.writeln('=== DASHBOARD SCORES ===');
+    contextBuf.writeln(
+      'Productivity: ${dashboardProvider.productivityScore.toStringAsFixed(1)}%',
+    );
+    contextBuf.writeln(
+      'Growth: ${dashboardProvider.growthScore.toStringAsFixed(1)}%',
+    );
+    contextBuf.writeln(
+      'Health: ${dashboardProvider.healthScore.toStringAsFixed(1)}%',
+    );
+    contextBuf.writeln(
+      'Overall: ${dashboardProvider.overallScore.toStringAsFixed(1)}%',
+    );
+
     _conversation = GenUiSetup.createConversation(
+      taskContext: contextBuf.toString(),
       onSurfaceAdded: (SurfaceAdded event) {
         setState(() => _surfaceIds.add(event.surfaceId));
       },
@@ -47,20 +138,22 @@ class _AICoachScreenState extends State<AICoachScreen> {
   @override
   void dispose() {
     _inputController.dispose();
-    _conversation.dispose();
+    _conversation?.dispose();
+    _speech.stop();
     super.dispose();
   }
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _conversation == null) return;
     _inputController.clear();
+    if (_isListening) _stopListening();
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      await _conversation.sendRequest(UserMessage.text(text));
+      await _conversation!.sendRequest(UserMessage.text(text));
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -91,6 +184,8 @@ class _AICoachScreenState extends State<AICoachScreen> {
   }
 
   Widget _buildHeader(Color primary) {
+    final taskProvider = context.watch<TaskProvider>();
+    final taskCount = taskProvider.tasks.length;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Row(
@@ -120,7 +215,7 @@ class _AICoachScreenState extends State<AICoachScreen> {
                   style: AppTextStyles.heading4.copyWith(fontSize: 16),
                 ),
                 Text(
-                  'Powered by GenUI',
+                  'Knows your $taskCount tasks • Voice enabled',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -128,20 +223,28 @@ class _AICoachScreenState extends State<AICoachScreen> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.accentGreen.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'LIVE',
-              style: AppTextStyles.labelSmall.copyWith(
-                color: AppColors.accentGreen,
-                fontSize: 9,
+          if (_speechAvailable)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.accentGreen.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.mic, size: 12, color: AppColors.accentGreen),
+                  const SizedBox(width: 2),
+                  Text(
+                    'STT',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.accentGreen,
+                      fontSize: 9,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
         ],
       ),
     );
@@ -182,7 +285,7 @@ class _AICoachScreenState extends State<AICoachScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Ask me about your productivity, get insights on your performance, or request personalized suggestions.',
+              'I know all your tasks. Ask me anything — type or use the mic!',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
@@ -195,9 +298,9 @@ class _AICoachScreenState extends State<AICoachScreen> {
               alignment: WrapAlignment.center,
               children: [
                 _SuggestionChip(
-                  label: 'How am I doing today?',
+                  label: 'What are my tasks today?',
                   onTap: () {
-                    _inputController.text = 'How am I doing today?';
+                    _inputController.text = 'What are my tasks today?';
                     _sendMessage();
                   },
                 ),
@@ -209,9 +312,16 @@ class _AICoachScreenState extends State<AICoachScreen> {
                   },
                 ),
                 _SuggestionChip(
-                  label: 'Show my weekly trends',
+                  label: 'Show my weekly summary',
                   onTap: () {
-                    _inputController.text = 'Show my weekly trends';
+                    _inputController.text = 'Show my weekly task summary';
+                    _sendMessage();
+                  },
+                ),
+                _SuggestionChip(
+                  label: 'Any overdue tasks?',
+                  onTap: () {
+                    _inputController.text = 'Do I have any overdue tasks?';
                     _sendMessage();
                   },
                 ),
@@ -244,7 +354,7 @@ class _AICoachScreenState extends State<AICoachScreen> {
         ..._surfaceIds.map(
           (id) => Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: GenUiSurface(host: _conversation.host, surfaceId: id),
+            child: GenUiSurface(host: _conversation!.host, surfaceId: id),
           ),
         ),
         const SizedBox(height: 24),
@@ -286,56 +396,138 @@ class _AICoachScreenState extends State<AICoachScreen> {
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _inputController,
-              onSubmitted: (_) => _sendMessage(),
-              style: AppTextStyles.bodyMedium,
-              decoration: InputDecoration(
-                hintText: 'Ask your AI Coach...',
-                hintStyle: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textTertiary,
+          // Voice status indicator
+          if (_isListening)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Listening... Speak now',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          _isLoading
-              ? const SizedBox(
-                width: 48,
-                height: 48,
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+          Row(
+            children: [
+              // Mic button
+              if (_speechAvailable)
+                GestureDetector(
+                  onTap: _isListening ? _stopListening : _startListening,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 44,
+                    height: 44,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color:
+                          _isListening
+                              ? AppColors.error
+                              : primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow:
+                          _isListening
+                              ? [
+                                BoxShadow(
+                                  color: AppColors.error.withValues(alpha: 0.4),
+                                  blurRadius: 12,
+                                ),
+                              ]
+                              : null,
+                    ),
+                    child: Icon(
+                      _isListening ? Icons.stop : Icons.mic,
+                      color: _isListening ? Colors.white : primary,
+                      size: 20,
+                    ),
                   ),
                 ),
-              )
-              : GestureDetector(
-                onTap: _sendMessage,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: primary,
-                    borderRadius: BorderRadius.circular(12),
+              // Text input
+              Expanded(
+                child: TextField(
+                  controller: _inputController,
+                  onSubmitted: (_) => _sendMessage(),
+                  style: AppTextStyles.bodyMedium,
+                  decoration: InputDecoration(
+                    hintText:
+                        _speechAvailable
+                            ? 'Type or tap mic to speak...'
+                            : 'Ask about your tasks, progress...',
+                    hintStyle: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
-                  child: const Icon(Icons.send, color: Colors.white, size: 20),
                 ),
               ),
+              const SizedBox(width: 8),
+              // Send button
+              _isLoading
+                  ? const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                  : GestureDetector(
+                    onTap: _sendMessage,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.send,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+            ],
+          ),
         ],
       ),
     );

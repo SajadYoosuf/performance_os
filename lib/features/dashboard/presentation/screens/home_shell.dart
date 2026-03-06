@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:app/shared/widgets/responsive_scaffold.dart';
 import 'package:app/features/dashboard/presentation/screens/dashboard_screen.dart';
-import 'package:app/features/tasks/presentation/screens/add_task_screen.dart';
+import 'package:app/features/tasks/presentation/screens/task_list_screen.dart';
 import 'package:app/features/reflection/presentation/screens/daily_reflection_screen.dart';
 import 'package:app/features/insights/presentation/screens/insights_screen.dart';
 import 'package:app/features/ai_coach/presentation/screens/ai_coach_screen.dart';
@@ -27,7 +27,7 @@ class _HomeShellState extends State<HomeShell> {
 
   final _pages = const <Widget>[
     DashboardScreen(), // 0
-    AddTaskScreen(), // 1
+    TaskListScreen(), // 1 — Day/Week/Month task views
     AICoachScreen(), // 2 (center FAB — GenUI-powered)
     DailyReflectionScreen(), // 3
     InsightsScreen(), // 4

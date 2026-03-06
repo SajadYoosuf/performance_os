@@ -26,6 +26,22 @@ class PerformanceOSCatalog {
   static Map<String, Object?> _dataMap(CatalogItemContext ctx) =>
       ctx.data as Map<String, Object?>;
 
+  /// Safe helper to subscribe to a string value from data.
+  ///
+  /// The AI can send either:
+  ///  - A `Map<String, Object?>` with `literalString` or `path` key → use subscribeToString
+  ///  - A raw `String` → wrap in a ValueNotifier directly
+  ///  - null → return ValueNotifier(null)
+  static ValueNotifier<String?> _safeSubscribeString(
+    DataContext dc,
+    Object? value,
+  ) {
+    if (value == null) return ValueNotifier<String?>(null);
+    if (value is String) return ValueNotifier<String?>(value);
+    if (value is Map<String, Object?>) return dc.subscribeToString(value);
+    return ValueNotifier<String?>(value.toString());
+  }
+
   // ── ScoreCard ──
   static final scoreCardItem = CatalogItem(
     name: 'ScoreCard',
@@ -43,17 +59,12 @@ class PerformanceOSCatalog {
     ),
     widgetBuilder: (context) {
       final d = _dataMap(context);
-      final titleN = context.dataContext.subscribeToString(
-        d['title'] as Map<String, Object?>?,
-      );
-      final scoreN = context.dataContext.subscribeToString(
-        d['score'] as Map<String, Object?>?,
-      );
-      final trendN = context.dataContext.subscribeToString(
-        d['trend'] as Map<String, Object?>?,
-      );
-      final trendDirN = context.dataContext.subscribeToString(
-        d['trendDirection'] as Map<String, Object?>?,
+      final titleN = _safeSubscribeString(context.dataContext, d['title']);
+      final scoreN = _safeSubscribeString(context.dataContext, d['score']);
+      final trendN = _safeSubscribeString(context.dataContext, d['trend']);
+      final trendDirN = _safeSubscribeString(
+        context.dataContext,
+        d['trendDirection'],
       );
       return ValueListenableBuilder<String?>(
         valueListenable: titleN,
@@ -146,15 +157,9 @@ class PerformanceOSCatalog {
     ),
     widgetBuilder: (context) {
       final d = _dataMap(context);
-      final titleN = context.dataContext.subscribeToString(
-        d['title'] as Map<String, Object?>?,
-      );
-      final descN = context.dataContext.subscribeToString(
-        d['description'] as Map<String, Object?>?,
-      );
-      final typeN = context.dataContext.subscribeToString(
-        d['type'] as Map<String, Object?>?,
-      );
+      final titleN = _safeSubscribeString(context.dataContext, d['title']);
+      final descN = _safeSubscribeString(context.dataContext, d['description']);
+      final typeN = _safeSubscribeString(context.dataContext, d['type']);
       return ValueListenableBuilder<String?>(
         valueListenable: titleN,
         builder:
@@ -226,9 +231,7 @@ class PerformanceOSCatalog {
     ),
     widgetBuilder: (context) {
       final d = _dataMap(context);
-      final msgN = context.dataContext.subscribeToString(
-        d['message'] as Map<String, Object?>?,
-      );
+      final msgN = _safeSubscribeString(context.dataContext, d['message']);
       return ValueListenableBuilder<String?>(
         valueListenable: msgN,
         builder: (ctx, msg, _) {
@@ -290,15 +293,9 @@ class PerformanceOSCatalog {
     ),
     widgetBuilder: (context) {
       final d = _dataMap(context);
-      final labelN = context.dataContext.subscribeToString(
-        d['label'] as Map<String, Object?>?,
-      );
-      final valueN = context.dataContext.subscribeToString(
-        d['value'] as Map<String, Object?>?,
-      );
-      final changeN = context.dataContext.subscribeToString(
-        d['change'] as Map<String, Object?>?,
-      );
+      final labelN = _safeSubscribeString(context.dataContext, d['label']);
+      final valueN = _safeSubscribeString(context.dataContext, d['value']);
+      final changeN = _safeSubscribeString(context.dataContext, d['change']);
       return ValueListenableBuilder<String?>(
         valueListenable: labelN,
         builder:
@@ -364,14 +361,11 @@ class PerformanceOSCatalog {
     ),
     widgetBuilder: (context) {
       final d = _dataMap(context);
-      final actionN = context.dataContext.subscribeToString(
-        d['action'] as Map<String, Object?>?,
-      );
-      final reasonN = context.dataContext.subscribeToString(
-        d['reason'] as Map<String, Object?>?,
-      );
-      final priorityN = context.dataContext.subscribeToString(
-        d['priority'] as Map<String, Object?>?,
+      final actionN = _safeSubscribeString(context.dataContext, d['action']);
+      final reasonN = _safeSubscribeString(context.dataContext, d['reason']);
+      final priorityN = _safeSubscribeString(
+        context.dataContext,
+        d['priority'],
       );
       return ValueListenableBuilder<String?>(
         valueListenable: actionN,
