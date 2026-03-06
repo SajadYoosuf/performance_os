@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:app/shared/widgets/responsive_scaffold.dart';
 import 'package:app/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:app/features/tasks/presentation/screens/task_list_screen.dart';
+import 'package:app/features/tasks/presentation/screens/add_task_screen.dart';
 import 'package:app/features/reflection/presentation/screens/daily_reflection_screen.dart';
 import 'package:app/features/insights/presentation/screens/insights_screen.dart';
 import 'package:app/features/ai_coach/presentation/screens/ai_coach_screen.dart';
@@ -11,6 +12,10 @@ import 'package:app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:app/features/insights/presentation/providers/insight_provider.dart';
 import 'package:app/core/theme/app_colors.dart';
 import 'package:app/core/theme/app_text_styles.dart';
+import 'package:app/features/tasks/presentation/providers/task_provider.dart';
+import 'package:app/features/reflection/presentation/providers/reflection_provider.dart';
+import 'package:app/features/ai_coach/presentation/widgets/quick_ai_overlay.dart';
+import 'package:app/features/dashboard/presentation/widgets/animated_floating_menu.dart';
 
 /// Home shell — the main app scaffold that manages navigation.
 ///
@@ -24,6 +29,9 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _currentIndex = 0;
+  String? _lastUserId;
+  bool _showAIOverlay = false;
+  bool _startAIWithVoice = false;
 
   final _pages = const <Widget>[
     DashboardScreen(), // 0
@@ -34,6 +42,28 @@ class _HomeShellState extends State<HomeShell> {
   ];
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.read<AuthProvider>();
+    final userId = auth.user?.uid;
+
+    if (userId != null && userId != _lastUserId) {
+      _lastUserId = userId;
+      // Initialize all data watchers via microtask to avoid setState during build.
+      Future.microtask(() {
+        if (!mounted) return;
+        final taskProvider = context.read<TaskProvider>();
+        final dashboardProvider = context.read<DashboardProvider>();
+        final reflectionProvider = context.read<ReflectionProvider>();
+
+        taskProvider.watchTasks(userId);
+        dashboardProvider.watchDashboard(userId);
+        reflectionProvider.watchReflections(userId);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final dashboard = context.watch<DashboardProvider>();
@@ -42,8 +72,39 @@ class _HomeShellState extends State<HomeShell> {
       onNavTap: (i) => setState(() => _currentIndex = i),
       userName: auth.user?.displayName ?? 'User',
       dailyScore: dashboard.overallScore,
-      mobileBody: IndexedStack(index: _currentIndex, children: _pages),
+      mobileBody: Stack(
+        children: [
+          IndexedStack(index: _currentIndex, children: _pages),
+          if (_showAIOverlay)
+            QuickAIOverlay(
+              startWithVoice: _startAIWithVoice,
+              onClose: () => setState(() => _showAIOverlay = false),
+            ),
+        ],
+      ),
       insightPanel: _buildInsightPanel(context),
+      floatingActionButton: _currentIndex != 2 ? _buildAIFabs() : null,
+    );
+  }
+
+  Widget _buildAIFabs() {
+    return AnimatedFloatingMenu(
+      onChatPressed:
+          () => setState(() {
+            _showAIOverlay = true;
+            _startAIWithVoice = false;
+          }),
+      onVoicePressed:
+          () => setState(() {
+            _showAIOverlay = true;
+            _startAIWithVoice = true;
+          }),
+      onAddPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AddTaskScreen()),
+        );
+      },
     );
   }
 

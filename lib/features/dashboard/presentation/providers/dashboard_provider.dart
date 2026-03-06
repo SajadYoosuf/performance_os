@@ -99,9 +99,8 @@ class DashboardProvider extends ChangeNotifier {
     _healthScore = _calcHealth(completedTasks);
 
     final overdueTasks = allTasks.where((t) => t.isOverdue).length;
-    final pendingHighImpact = allTasks
-        .where((t) => t.isHighImpact && !t.isCompleted)
-        .length;
+    final pendingHighImpact =
+        allTasks.where((t) => t.isHighImpact && !t.isCompleted).length;
 
     // Count consecutive low-score days
     int consecutiveLow = 0;
@@ -131,5 +130,22 @@ class DashboardProvider extends ChangeNotifier {
   void dispose() {
     _subscription?.cancel();
     super.dispose();
+  }
+
+  /// Builds a formatted string of the current dashboard state to feed directly to the AI coach.
+  String buildDashboardContextForAI() {
+    final buf = StringBuffer();
+    buf.writeln('User Dashboard Data:');
+    buf.writeln(
+      '- Overall Score: ${(overallScore * 20).toStringAsFixed(1)}/100',
+    );
+    buf.writeln('- Productivity: ${productivityScore.toStringAsFixed(1)}/5');
+    buf.writeln('- Growth: ${growthScore.toStringAsFixed(1)}/5');
+    buf.writeln('- Health: ${healthScore.toStringAsFixed(1)}/5');
+    if (_todayScore != null) {
+      buf.writeln('- Today\'s Completed Tasks: ${_todayScore!.tasksCompleted}');
+      buf.writeln('- Today\'s Deep Work: ${_todayScore!.deepWorkMinutes} mins');
+    }
+    return buf.toString();
   }
 }

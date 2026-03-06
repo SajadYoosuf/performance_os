@@ -69,4 +69,21 @@ class ReflectionProvider extends ChangeNotifier {
     _isLoading = value;
     notifyListeners();
   }
+
+  /// Builds a formatted string of recent reflections to feed directly to the AI coach.
+  String buildReflectionContextForAI() {
+    if (_reflections.isEmpty) return 'No recent reflections available.';
+    final recent =
+        _reflections.take(5).toList(); // Send up to 5 recent reflections
+    final buf = StringBuffer();
+    buf.writeln('Recent reflections from user:');
+    for (var r in recent) {
+      buf.writeln('- Date: ${r.date.toIso8601String().split('T').first}');
+      buf.writeln(
+        '  Mood: ${r.mood.name}, Distractions: ${r.distractionHours} hours',
+      );
+      buf.writeln('  Content: "${r.content}"');
+    }
+    return buf.toString();
+  }
 }

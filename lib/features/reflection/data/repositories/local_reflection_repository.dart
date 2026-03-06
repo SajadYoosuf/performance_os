@@ -46,6 +46,7 @@ class LocalReflectionRepository implements ReflectionRepository {
 
   @override
   Future<void> saveReflection(ReflectionEntity reflection) async {
+    if (_currentUserId != reflection.userId) _loadFromDisk(reflection.userId);
     final idx = _cache.indexWhere((r) => r.id == reflection.id);
     if (idx != -1) {
       _cache[idx] = reflection;

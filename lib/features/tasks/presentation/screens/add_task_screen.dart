@@ -26,7 +26,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   TaskDomain _domain = TaskDomain.work;
   int _estimatedMinutes = 45;
   OutcomeType _outcomeType = OutcomeType.revenueGeneration;
+  final _estimatedMinutesController = TextEditingController(text: '45');
   DateTime? _dueDate;
+  DateTime? _startDate;
 
   // Speech-to-text
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -390,9 +392,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                                 vertical: 12,
                                               ),
                                         ),
-                                        controller: TextEditingController(
-                                          text: _estimatedMinutes.toString(),
-                                        ),
+                                        controller: _estimatedMinutesController,
                                         onChanged: (v) {
                                           final parsed = int.tryParse(v);
                                           if (parsed != null) {
@@ -464,6 +464,84 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         ),
                       ],
                     ),
+                    // Start Date Picker
+                    GlassCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'START DATE',
+                            style: AppTextStyles.sectionHeader.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          GestureDetector(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _startDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 365),
+                                ),
+                              );
+                              if (picked != null)
+                                setState(() => _startDate = picked);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.play_circle_outline,
+                                    color:
+                                        _startDate != null
+                                            ? primary
+                                            : AppColors.textTertiary,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    _startDate != null
+                                        ? DateFormat(
+                                          'EEEE, MMM d, yyyy',
+                                        ).format(_startDate!)
+                                        : 'Select start date (optional)',
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      color:
+                                          _startDate != null
+                                              ? AppColors.textPrimary
+                                              : AppColors.textTertiary,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (_startDate != null)
+                                    GestureDetector(
+                                      onTap:
+                                          () =>
+                                              setState(() => _startDate = null),
+                                      child: Icon(
+                                        Icons.close,
+                                        size: 16,
+                                        color: AppColors.textTertiary,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     // Due Date Picker
                     GlassCard(
                       child: Column(
@@ -601,6 +679,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       estimatedMinutes: _estimatedMinutes,
       outcomeType: _outcomeType,
       dueDate: _dueDate,
+      startDate: _startDate,
     );
 
     // Notify user of new task.
@@ -616,6 +695,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   @override
   void dispose() {
     _titleController.dispose();
+    _estimatedMinutesController.dispose();
     _speech.stop();
     super.dispose();
   }

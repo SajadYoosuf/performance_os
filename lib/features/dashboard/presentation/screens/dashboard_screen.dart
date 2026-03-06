@@ -12,12 +12,13 @@ import 'package:app/shared/widgets/motivation_banner.dart';
 import 'package:app/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:app/features/tasks/presentation/providers/task_provider.dart';
 import 'package:app/features/insights/presentation/providers/insight_provider.dart';
+import 'package:app/features/tasks/presentation/screens/task_detail_screen.dart';
+import 'package:app/shared/widgets/task_list_tile.dart';
+import 'package:app/features/dashboard/presentation/widgets/focused_session_card.dart';
+import 'package:app/features/tasks/domain/entities/task_entity.dart';
 import 'package:intl/intl.dart';
 
 /// Dashboard screen — Stitch mobile dashboard mapped to Flutter.
-///
-/// Agent-driven: visibility of all sections controlled by
-/// [AgentLayoutConfig] from [DashboardProvider].
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -30,16 +31,13 @@ class DashboardScreen extends StatelessWidget {
 
         return CustomScrollView(
           slivers: [
-            // ── Header ──
             SliverToBoxAdapter(child: _buildHeader(context)),
-            // ── Score Section ──
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _buildScoreCard(context, dashboard),
               ),
             ),
-            // ── Motivation Banner (Agent-controlled) ──
             if (config.showMotivationBanner && config.motivationMessage != null)
               SliverToBoxAdapter(
                 child: Padding(
@@ -47,8 +45,27 @@ class DashboardScreen extends StatelessWidget {
                   child: MotivationBanner(message: config.motivationMessage!),
                 ),
               ),
-            // ── Focus Block (Agent-controlled highlight) ──
-            if (config.highlightPrimaryTask && priorityTask != null)
+            if (_hasFocusedProject(taskProvider))
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                  child: FocusedSessionCard(
+                    task: _getFocusedProject(taskProvider)!,
+                    onTap: () {
+                      final task = _getFocusedProject(taskProvider)!;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TaskDetailScreen(task: task),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            if (config.highlightPrimaryTask &&
+                priorityTask != null &&
+                !_hasFocusedProject(taskProvider))
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
@@ -69,15 +86,12 @@ class DashboardScreen extends StatelessWidget {
                         impact: priorityTask.isHighImpact ? 'HIGH' : 'MEDIUM',
                         timeEstimate: '${priorityTask.estimatedMinutes} min',
                         energyNote: 'Peak Energy Window',
-                        onStart: () {
-                          // TODO: Navigate to focus session
-                        },
+                        onStart: () {},
                       ),
                     ],
                   ),
                 ),
               ),
-            // ── Secondary Tasks Grid ──
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
@@ -92,7 +106,6 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Low Energy Tasks (Agent-controlled)
                     if (config.showLowEnergyTasks)
                       Expanded(
                         child: TaskGridCard(
@@ -105,7 +118,63 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
             ),
-            // ── Stop Doing Panel (Agent-controlled) ──
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(
+                      context,
+                      "Today's Roadmap",
+                      icon: Icons.calendar_today,
+                      iconColor: AppColors.accentBlue,
+                    ),
+                    const SizedBox(height: 12),
+                    if (taskProvider.todayTasks.isEmpty)
+                      GlassCard(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Text(
+                              'No tasks scheduled for today.',
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        itemCount: taskProvider.todayTasks.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final task = taskProvider.todayTasks[index];
+                          return TaskListTile(
+                            title: task.title,
+                            domain: task.domain.label,
+                            impact: task.impactScore.toInt().toString(),
+                            isCompleted: task.isCompleted,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => TaskDetailScreen(task: task),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
             if (config.showStopDoingPanel)
               SliverToBoxAdapter(
                 child: Padding(
@@ -124,7 +193,6 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
               ),
-            // Bottom padding for nav bar
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         );
@@ -135,14 +203,12 @@ class DashboardScreen extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     final now = DateTime.now();
     final dateStr = DateFormat('EEEE, MMM d').format(now);
-
     return SafeArea(
       bottom: false,
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Row(
           children: [
-            // User avatar
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -176,29 +242,6 @@ class DashboardScreen extends StatelessWidget {
                 ],
               ),
             ),
-            // Notification bell
-            Stack(
-              children: [
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.notifications_outlined),
-                  color: AppColors.textSecondary,
-                ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -209,10 +252,8 @@ class DashboardScreen extends StatelessWidget {
     return GlassCard(
       child: Row(
         children: [
-          // Score ring
           ScoreRingWidget(score: dashboard.overallScore, label: 'Score'),
           const SizedBox(width: 24),
-          // Metrics grid
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,19 +332,34 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
+
+  bool _hasFocusedProject(TaskProvider provider) {
+    return provider.tasks.any(
+      (t) => t.isProject && t.domain == TaskDomain.work && !t.isCompleted,
+    );
+  }
+
+  TaskEntity? _getFocusedProject(TaskProvider provider) {
+    final projects =
+        provider.tasks
+            .where(
+              (t) =>
+                  t.isProject && t.domain == TaskDomain.work && !t.isCompleted,
+            )
+            .toList();
+    return projects.isNotEmpty ? projects.first : null;
+  }
 }
 
 class _ScoreMetric extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
-
   const _ScoreMetric({
     required this.value,
     required this.label,
     required this.color,
   });
-
   @override
   Widget build(BuildContext context) {
     return Column(

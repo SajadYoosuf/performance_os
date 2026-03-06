@@ -69,6 +69,7 @@ class LocalTaskRepository implements TaskRepository {
 
   @override
   Future<void> addTask(TaskEntity task) async {
+    if (_currentUserId != task.userId) _loadFromDisk(task.userId);
     _cache.add(task);
     await _saveToDisk();
     _broadcast();
@@ -76,6 +77,7 @@ class LocalTaskRepository implements TaskRepository {
 
   @override
   Future<void> updateTask(TaskEntity task) async {
+    if (_currentUserId != task.userId) _loadFromDisk(task.userId);
     final idx = _cache.indexWhere((t) => t.id == task.id);
     if (idx != -1) {
       _cache[idx] = task;
@@ -86,6 +88,11 @@ class LocalTaskRepository implements TaskRepository {
 
   @override
   Future<void> deleteTask(String taskId) async {
+    // Note: deleteTask in the interface only takes taskId.
+    // If _currentUserId is null, we might be deleting from the wrong cache
+    // or failing to save. However, in this app, userId is usually available
+    // or watchTasks has been called. For safety, we'll assume the current cache
+    // is correct or wait for a watch call.
     _cache.removeWhere((t) => t.id == taskId);
     await _saveToDisk();
     _broadcast();
@@ -143,6 +150,13 @@ class LocalTaskRepository implements TaskRepository {
         (e) => e.name == data['outcomeType'],
         orElse: () => OutcomeType.systemImprovement,
       ),
+      status: TaskStatus.values.firstWhere(
+        (e) => e.name == (data['status'] ?? 'todo'),
+        orElse: () => TaskStatus.todo,
+      ),
+      isPersonal: data['isPersonal'] as bool? ?? false,
+      occurrence: data['occurrence'] as String?,
+      reminderTimes: List<String>.from(data['reminderTimes'] ?? const []),
       isCompleted: data['isCompleted'] as bool? ?? false,
       deepWorkMinutes: data['deepWorkMinutes'] as int? ?? 0,
       createdAt: DateTime.parse(data['createdAt'] as String),
@@ -150,10 +164,15 @@ class LocalTaskRepository implements TaskRepository {
           data['dueDate'] != null
               ? DateTime.parse(data['dueDate'] as String)
               : null,
+      startDate:
+          data['startDate'] != null
+              ? DateTime.parse(data['startDate'] as String)
+              : null,
       completedAt:
           data['completedAt'] != null
               ? DateTime.parse(data['completedAt'] as String)
               : null,
+      isProject: data['isProject'] as bool? ?? false,
     );
   }
 
@@ -169,11 +188,17 @@ class LocalTaskRepository implements TaskRepository {
       'energyRequired': task.energyRequired.name,
       'estimatedMinutes': task.estimatedMinutes,
       'outcomeType': task.outcomeType.name,
+      'status': task.status.name,
+      'isPersonal': task.isPersonal,
+      'occurrence': task.occurrence,
+      'reminderTimes': task.reminderTimes,
       'isCompleted': task.isCompleted,
       'deepWorkMinutes': task.deepWorkMinutes,
       'createdAt': task.createdAt.toIso8601String(),
       'dueDate': task.dueDate?.toIso8601String(),
+      'startDate': task.startDate?.toIso8601String(),
       'completedAt': task.completedAt?.toIso8601String(),
+      'isProject': task.isProject,
     };
   }
 }

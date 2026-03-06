@@ -17,7 +17,13 @@ class TaskEntity extends Equatable {
   final int deepWorkMinutes;
   final DateTime createdAt;
   final DateTime? dueDate;
+  final DateTime? startDate;
   final DateTime? completedAt;
+  final TaskStatus status;
+  final bool isPersonal;
+  final String? occurrence; // e.g., "daily", "weekly"
+  final List<String> reminderTimes; // e.g., ["10:00 AM", "02:00 PM"]
+  final bool isProject;
 
   const TaskEntity({
     required this.id,
@@ -34,7 +40,13 @@ class TaskEntity extends Equatable {
     this.deepWorkMinutes = 0,
     required this.createdAt,
     this.dueDate,
+    this.startDate,
     this.completedAt,
+    this.status = TaskStatus.todo,
+    this.isPersonal = false,
+    this.occurrence,
+    this.reminderTimes = const [],
+    this.isProject = false,
   });
 
   /// Whether this task has HIGH impact (score >= 7).
@@ -61,7 +73,13 @@ class TaskEntity extends Equatable {
     int? deepWorkMinutes,
     DateTime? createdAt,
     DateTime? dueDate,
+    DateTime? startDate,
     DateTime? completedAt,
+    TaskStatus? status,
+    bool? isPersonal,
+    String? occurrence,
+    List<String>? reminderTimes,
+    bool? isProject,
   }) {
     return TaskEntity(
       id: id ?? this.id,
@@ -78,10 +96,28 @@ class TaskEntity extends Equatable {
       deepWorkMinutes: deepWorkMinutes ?? this.deepWorkMinutes,
       createdAt: createdAt ?? this.createdAt,
       dueDate: dueDate ?? this.dueDate,
+      startDate: startDate ?? this.startDate,
       completedAt: completedAt ?? this.completedAt,
+      status: status ?? this.status,
+      isPersonal: isPersonal ?? this.isPersonal,
+      occurrence: occurrence ?? this.occurrence,
+      reminderTimes: reminderTimes ?? this.reminderTimes,
+      isProject: isProject ?? this.isProject,
     );
   }
 
   @override
-  List<Object?> get props => [id, userId, title, isCompleted];
+  List<Object?> get props => [
+    id,
+    userId,
+    title,
+    isCompleted,
+    startDate,
+    dueDate,
+    status,
+    isPersonal,
+    occurrence,
+    reminderTimes,
+    isProject,
+  ];
 }

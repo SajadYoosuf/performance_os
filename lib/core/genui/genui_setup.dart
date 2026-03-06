@@ -1,76 +1,79 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:genui_firebase_ai/genui_firebase_ai.dart';
 import 'package:app/core/genui/performance_os_catalog.dart';
+import 'package:app/core/genui/task_tools.dart';
 
-/// Factory for creating and configuring the GenUI conversation
-/// for the Performance OS AI Coach.
+/// Setup for GenUI in Performance OS.
 class GenUiSetup {
-  GenUiSetup._();
+  static String buildSystemInstruction({
+    String? taskContext,
+    String? dashboardContext,
+    String? reflectionContext,
+  }) {
+    final buf = StringBuffer();
+    buf.writeln('You are the Performance OS AI Coach.');
+    buf.writeln('Help the user manage tasks and improve productivity.');
+    buf.writeln('You can create tasks using the "create_task" tool.');
 
-  /// Base system instruction that tells the AI how to behave.
-  static const String _baseSystemInstruction = '''
-You are the AI Coach for Performance OS, an AI-powered Personal Performance Operating System.
+    buf.writeln('\n--- USER STATUS & CONTEXT ---');
+    buf.writeln('Current user task context:');
+    buf.writeln(taskContext ?? 'No tasks currently.');
 
-Your role:
-- Analyze the user's productivity data, tasks, scores, and habits.
-- Provide actionable insights and suggestions to improve their performance.
-- Dynamically generate UI using the available widget catalog.
-- You have FULL knowledge of the user's tasks, completed items, and schedule below.
-
-Available widgets you can use:
-- **ScoreCard**: Display a metric with title, score value, and optional trend.
-- **InsightCard**: Show an AI-generated insight with title, description, and type.
-- **MotivationBanner**: Display an encouraging or motivational message.
-- **MetricRow**: Show a label-value pair with optional change percentage.
-- **ActionSuggestion**: Recommend a specific action with reason and priority level.
-- **Text**: Standard text display.
-- **Markdown**: Rich formatted text.
-
-When the user asks about their performance, generate a mix of ScoreCards, InsightCards, and ActionSuggestions.
-When the user needs motivation, use MotivationBanner.
-When showing detailed metrics, use MetricRow.
-Always be encouraging, data-driven, and actionable.
-When the user asks about tasks, use the task data provided below to give accurate, personalized answers.
-''';
-
-  /// Build the full system instruction with dynamic task context.
-  static String buildSystemInstruction({String? taskContext}) {
-    if (taskContext == null || taskContext.isEmpty) {
-      return _baseSystemInstruction;
+    if (dashboardContext != null && dashboardContext.isNotEmpty) {
+      buf.writeln('\n$dashboardContext');
     }
-    return '$_baseSystemInstruction\n\n$taskContext';
+
+    if (reflectionContext != null && reflectionContext.isNotEmpty) {
+      buf.writeln('\n$reflectionContext');
+    }
+    buf.writeln('-----------------------------\n');
+    buf.writeln(
+      'When you receive user input, your primary goal is to use the "create_task" tool to extract details and CREATE THE TASK IMMEDIATELY.',
+    );
+    buf.writeln('Do NOT just describe how you would create it. Call the tool.');
+    buf.writeln(
+      'If title or domain is missing, make your best guess based on the context before asking for clarification.',
+    );
+    buf.writeln(
+      '- Use "isProject: true" if it says it is a company/official work.',
+    );
+    buf.writeln('- Always confirm after successfully calling the tool.');
+    return buf.toString();
   }
 
-  /// Creates a fully configured [GenUiConversation].
-  ///
-  /// [taskContext] — structured text summary of user tasks injected
-  /// as part of the system instruction (RAG-like context).
   static GenUiConversation createConversation({
     required ValueChanged<SurfaceAdded> onSurfaceAdded,
     required ValueChanged<SurfaceRemoved> onSurfaceDeleted,
+    required BuildContext context,
     ValueChanged<String>? onTextResponse,
     ValueChanged<ContentGeneratorError>? onError,
     String? taskContext,
+    String? dashboardContext,
+    String? reflectionContext,
   }) {
     final catalog = PerformanceOSCatalog.asCatalog();
-
     final a2uiMessageProcessor = A2uiMessageProcessor(catalogs: [catalog]);
-
-    final systemInstruction = buildSystemInstruction(taskContext: taskContext);
+    final systemInstruction = buildSystemInstruction(
+      taskContext: taskContext,
+      dashboardContext: dashboardContext,
+      reflectionContext: reflectionContext,
+    );
+    final tools = TaskTools.asTools(context);
 
     final contentGenerator = FirebaseAiContentGenerator(
       catalog: catalog,
       systemInstruction: systemInstruction,
+      additionalTools: tools,
     );
 
     return GenUiConversation(
       a2uiMessageProcessor: a2uiMessageProcessor,
       contentGenerator: contentGenerator,
-      onSurfaceAdded: onSurfaceAdded,
-      onSurfaceDeleted: onSurfaceDeleted,
-      onTextResponse: onTextResponse,
-      onError: onError,
+      onSurfaceAdded: (update) => onSurfaceAdded(update),
+      onSurfaceDeleted: (update) => onSurfaceDeleted(update),
+      onTextResponse: (text) => onTextResponse?.call(text),
+      onError: (error) => onError?.call(error),
     );
   }
 }

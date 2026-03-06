@@ -1,7 +1,14 @@
+import 'package:app/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:app/core/theme/app_colors.dart';
 import 'package:app/core/theme/app_text_styles.dart';
 import 'package:app/shared/widgets/task_list_tile.dart';
+import 'package:provider/provider.dart';
+import 'package:app/features/tasks/presentation/providers/task_provider.dart';
+import 'package:app/features/tasks/domain/entities/task_entity.dart';
+import 'package:app/features/dashboard/presentation/providers/dashboard_provider.dart';
+import 'package:app/features/tasks/presentation/screens/task_detail_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Performance Summary / Insights screen — mapped from Stitch performance_summary + web insights.
 class InsightsScreen extends StatelessWidget {
@@ -12,29 +19,29 @@ class InsightsScreen extends StatelessWidget {
     final primary = Theme.of(context).colorScheme.primary;
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: _buildHeader(context, primary)),
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _buildSummaryGrid(context, primary),
+          child: Consumer<TaskProvider>(
+            builder: (context, tp, _) => _buildHeader(context, primary, tp),
           ),
         ),
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-            child: _buildAIInsight(context, primary),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-            child: _buildWeeklyChart(context, primary),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-            child: _buildTopTasks(context),
+          child: Consumer2<TaskProvider, DashboardProvider>(
+            builder: (context, taskProvider, dashboardProvider, _) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    _buildSummaryGrid(context, primary, dashboardProvider),
+                    const SizedBox(height: 24),
+                    _buildAIInsight(context, primary, taskProvider),
+                    const SizedBox(height: 24),
+                    _buildWeeklyChart(context, primary, dashboardProvider),
+                    const SizedBox(height: 24),
+                    _buildTopTasks(context, taskProvider),
+                  ],
+                ),
+              );
+            },
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -42,7 +49,11 @@ class InsightsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, Color primary) {
+  Widget _buildHeader(
+    BuildContext context,
+    Color primary,
+    TaskProvider taskProvider,
+  ) {
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -78,7 +89,7 @@ class InsightsScreen extends StatelessWidget {
               ),
             ),
             IconButton(
-              onPressed: () {},
+              onPressed: () => _sharePerformance(taskProvider),
               icon: Icon(Icons.share, color: AppColors.textSecondary),
             ),
           ],
@@ -87,7 +98,54 @@ class InsightsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryGrid(BuildContext context, Color primary) {
+  void _sharePerformance(TaskProvider tp) {
+    final tasks = tp.todayTasks;
+    if (tasks.isEmpty) {
+      Share.share(
+        '🚀 Check out Performance OS! I\'m getting ready to crush my goals today.',
+      );
+      return;
+    }
+
+    final total = tasks.length;
+    final workCount = tasks.where((t) => t.domain == TaskDomain.work).length;
+    final learningCount =
+        tasks.where((t) => t.domain == TaskDomain.learning).length;
+    final healthCount =
+        tasks.where((t) => t.domain == TaskDomain.health).length;
+    final personalCount =
+        tasks.where((t) => t.domain == TaskDomain.personal).length;
+
+    final workPercent = (workCount / total * 100).toInt();
+    final learningPercent = (learningCount / total * 100).toInt();
+    final healthPercent = (healthCount / total * 100).toInt();
+    final personalPercent = (personalCount / total * 100).toInt();
+
+    final completed = tp.completedToday.length;
+    final progress = (completed / total * 100).toInt();
+
+    final message = '''
+📊 My Performance OS Today:
+✅ Growth Progress: $progress%
+
+Focus Distribution:
+💼 Work: $workPercent%
+🎓 Learning: $learningPercent%
+🌿 Health: $healthPercent%
+👤 Personal: $personalPercent%
+
+#PerformanceOS #Productivity #Optimization
+''';
+
+    Share.share(message);
+  }
+
+  Widget _buildSummaryGrid(
+    BuildContext context,
+    Color primary,
+    DashboardProvider dashboardProvider,
+  ) {
+    final score = (dashboardProvider.overallScore * 20).toStringAsFixed(1);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -102,7 +160,7 @@ class InsightsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'WEEK 42',
+                'LIVE DATA',
                 style: AppTextStyles.labelSmall.copyWith(color: primary),
               ),
             ),
@@ -141,7 +199,7 @@ class InsightsScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '94.8%',
+                          '$score%',
                           style: AppTextStyles.scoreMedium.copyWith(
                             color: Colors.white,
                             fontSize: 28,
@@ -166,7 +224,7 @@ class InsightsScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 2),
                               Text(
-                                '2.4%',
+                                'Good',
                                 style: AppTextStyles.caption.copyWith(
                                   color: Colors.white,
                                 ),
@@ -195,7 +253,7 @@ class InsightsScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Daily Target',
+                      'Productivity',
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -205,7 +263,9 @@ class InsightsScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '4.2k',
+                          dashboardProvider.productivityScore.toStringAsFixed(
+                            1,
+                          ),
                           style: AppTextStyles.scoreMedium.copyWith(
                             fontSize: 28,
                           ),
@@ -229,7 +289,16 @@ class InsightsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAIInsight(BuildContext context, Color primary) {
+  Widget _buildAIInsight(
+    BuildContext context,
+    Color primary,
+    TaskProvider taskProvider,
+  ) {
+    final completedCount = taskProvider.completedToday.length;
+    final totalCount = taskProvider.todayTasks.length;
+    final progress =
+        totalCount > 0 ? (completedCount / totalCount * 100).toInt() : 0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -263,19 +332,17 @@ class InsightsScreen extends StatelessWidget {
                 height: 1.6,
               ),
               children: [
-                const TextSpan(
-                  text: 'Your deep work consistency has increased by ',
-                ),
+                const TextSpan(text: 'Today you have completed '),
                 TextSpan(
-                  text: '18%',
+                  text: '$progress%',
                   style: TextStyle(
                     color: AppColors.accentGreen,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const TextSpan(
+                TextSpan(
                   text:
-                      " this week. Primary bottleneck identified in 'Meetings'—consider shifting creative tasks to Tuesday morning for peak output.",
+                      ' of your scheduled missions. ${progress > 50 ? "Excellent momentum!" : "Consider tackling a high-impact task next."}',
                 ),
               ],
             ),
@@ -285,9 +352,14 @@ class InsightsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildWeeklyChart(BuildContext context, Color primary) {
+  Widget _buildWeeklyChart(
+    BuildContext context,
+    Color primary,
+    DashboardProvider dashboardProvider,
+  ) {
     final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final heights = [0.6, 0.75, 0.95, 0.4, 0.65, 0.2, 0.15];
+    final scores = dashboardProvider.weeklyScores;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -310,7 +382,17 @@ class InsightsScreen extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: List.generate(7, (i) {
-                final isHighlight = i == 2;
+                // Map days to our 7-day view (simple mapping for demo)
+                final scoreIndex = i < scores.length ? i : -1;
+                final heightFactor =
+                    scoreIndex != -1
+                        ? (scores[scoreIndex].overallScore / 100).clamp(
+                          0.1,
+                          1.0,
+                        )
+                        : 0.1;
+                final isToday = i == (DateTime.now().weekday - 1);
+
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -319,11 +401,11 @@ class InsightsScreen extends StatelessWidget {
                       children: [
                         Flexible(
                           child: FractionallySizedBox(
-                            heightFactor: heights[i],
+                            heightFactor: heightFactor,
                             child: Container(
                               decoration: BoxDecoration(
                                 color:
-                                    isHighlight
+                                    isToday
                                         ? primary
                                         : primary.withValues(alpha: 0.35),
                                 borderRadius: BorderRadius.circular(20),
@@ -336,7 +418,7 @@ class InsightsScreen extends StatelessWidget {
                           days[i],
                           style: AppTextStyles.labelSmall.copyWith(
                             color:
-                                isHighlight
+                                isToday
                                     ? AppColors.textPrimary
                                     : AppColors.textTertiary,
                             fontSize: 9,
@@ -354,7 +436,11 @@ class InsightsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTopTasks(BuildContext context) {
+  Widget _buildTopTasks(BuildContext context, TaskProvider taskProvider) {
+    final topTasks = List<TaskEntity>.from(taskProvider.tasks)
+      ..sort((a, b) => b.impactScore.compareTo(a.impactScore));
+    final displayTasks = topTasks.take(3).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -365,29 +451,35 @@ class InsightsScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const TaskListTile(
-          title: 'Q4 Architecture Strategy',
-          domain: 'Product',
-          impact: 'High',
-          points: '+40 pts',
-          isCompleted: true,
-        ),
-        const SizedBox(height: 12),
-        const TaskListTile(
-          title: 'Client Review Workshop',
-          domain: 'Relations',
-          impact: 'Mid',
-          points: '+25 pts',
-          isCompleted: true,
-        ),
-        const SizedBox(height: 12),
-        const TaskListTile(
-          title: 'Brand Identity Refresh V2',
-          domain: 'Design',
-          impact: 'High',
-          points: '+35 pts',
-          isCompleted: true,
-        ),
+        if (displayTasks.isEmpty)
+          Center(
+            child: Text(
+              'No high impact tasks identified yet.',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textTertiary,
+              ),
+            ),
+          )
+        else
+          ...displayTasks.map(
+            (task) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TaskListTile(
+                title: task.title,
+                domain: task.domain.label,
+                impact: task.impactScore.toInt().toString(),
+                isCompleted: task.isCompleted,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TaskDetailScreen(task: task),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -1,0 +1,6 @@
+Analyzing check_genui.dart...                                   
+
+  error - The named parameter 'tools' isn't defined - lib\check_genui.dart:8:5 - undefined_named_parameter
+warning - The value of the local variable 'conversation' isn't used - lib\check_genui.dart:11:9 - unused_local_variable
+  error - The named parameter 'tools' isn't defined - lib\check_genui.dart:19:5 - undefined_named_parameter
+

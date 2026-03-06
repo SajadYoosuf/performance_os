@@ -46,16 +46,18 @@ class TaskListTile extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isCompleted
-                    ? AppColors.successLight
-                    : AppColors.backgroundLight,
+                color:
+                    isCompleted
+                        ? AppColors.successLight
+                        : AppColors.backgroundLight,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isCompleted ? Icons.check_circle : Icons.circle_outlined,
-                color: isCompleted
-                    ? AppColors.accentGreen
-                    : AppColors.textTertiary,
+                color:
+                    isCompleted
+                        ? AppColors.accentGreen
+                        : AppColors.textTertiary,
                 size: 20,
               ),
             ),
@@ -68,6 +70,8 @@ class TaskListTile extends StatelessWidget {
                   Text(
                     title,
                     style: AppTextStyles.labelLarge.copyWith(fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -75,6 +79,8 @@ class TaskListTile extends StatelessWidget {
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

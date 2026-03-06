@@ -60,6 +60,11 @@ class TaskProvider extends ChangeNotifier {
     final startOfDay = DateTime(now.year, now.month, now.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
     return _tasks.where((t) {
+      // If task has a start date, it only shows on/after that date
+      if (t.startDate != null) {
+        return t.startDate!.isBefore(endOfDay);
+      }
+      // Fallback to createdAt if no startDate
       final isCreatedToday =
           t.createdAt.isAfter(startOfDay) && t.createdAt.isBefore(endOfDay);
       final isDueToday =
@@ -224,7 +229,11 @@ class TaskProvider extends ChangeNotifier {
   // ── Repository operations ──
 
   /// Start watching tasks for a user.
+  String? _userId;
+  String? get currentUserId => _userId;
+
   void watchTasks(String userId) {
+    _userId = userId;
     _subscription?.cancel();
     _isLoading = true;
     notifyListeners();
@@ -264,6 +273,7 @@ class TaskProvider extends ChangeNotifier {
     int estimatedMinutes = 45,
     OutcomeType outcomeType = OutcomeType.systemImprovement,
     DateTime? dueDate,
+    DateTime? startDate,
   }) async {
     _setLoading(true);
     try {
@@ -280,13 +290,29 @@ class TaskProvider extends ChangeNotifier {
         outcomeType: outcomeType,
         createdAt: DateTime.now(),
         dueDate: dueDate,
+        startDate: startDate,
       );
-      await _repository.addTask(task);
+      await addTaskInstance(task);
       _error = null;
     } catch (e) {
       _error = e.toString();
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<void> addTaskInstance(TaskEntity task) async {
+    await _repository.addTask(task);
+  }
+
+  /// Update an existing task.
+  Future<void> updateTask(TaskEntity task) async {
+    try {
+      await _repository.updateTask(task);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
     }
   }
 
@@ -297,7 +323,7 @@ class TaskProvider extends ChangeNotifier {
         isCompleted: true,
         completedAt: DateTime.now(),
       );
-      await _repository.updateTask(updated);
+      await updateTask(updated);
       NotificationService().notifyTaskCompleted(task.title);
     } catch (e) {
       _error = e.toString();

@@ -78,11 +78,7 @@ enum EnergyLevel {
   }
 }
 
-enum LayoutMode {
-  focus,
-  recovery,
-  balanced,
-}
+enum LayoutMode { focus, recovery, balanced }
 
 enum OutcomeType {
   revenueGeneration,
@@ -133,6 +129,26 @@ enum MoodType {
         return 'sentiment_neutral';
       case MoodType.tired:
         return 'battery_low';
+    }
+  }
+}
+
+enum TaskStatus {
+  todo,
+  ongoing,
+  completed,
+  blocked;
+
+  String get label {
+    switch (this) {
+      case TaskStatus.todo:
+        return 'To Do';
+      case TaskStatus.ongoing:
+        return 'Ongoing';
+      case TaskStatus.completed:
+        return 'Completed';
+      case TaskStatus.blocked:
+        return 'Blocked';
     }
   }
 }

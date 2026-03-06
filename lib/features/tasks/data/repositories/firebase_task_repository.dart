@@ -59,31 +59,34 @@ class FirebaseTaskRepository implements TaskRepository {
     String userId,
     String domain,
   ) async {
-    final snapshot = await _tasksRef
-        .where('userId', isEqualTo: userId)
-        .where('isCompleted', isEqualTo: true)
-        .where('domain', isEqualTo: domain)
-        .get();
+    final snapshot =
+        await _tasksRef
+            .where('userId', isEqualTo: userId)
+            .where('isCompleted', isEqualTo: true)
+            .where('domain', isEqualTo: domain)
+            .get();
     return snapshot.docs.map((doc) => _fromFirestore(doc)).toList();
   }
 
   @override
   Future<List<TaskEntity>> getOverdueTasks(String userId) async {
-    final snapshot = await _tasksRef
-        .where('userId', isEqualTo: userId)
-        .where('isCompleted', isEqualTo: false)
-        .where('dueDate', isLessThan: Timestamp.now())
-        .get();
+    final snapshot =
+        await _tasksRef
+            .where('userId', isEqualTo: userId)
+            .where('isCompleted', isEqualTo: false)
+            .where('dueDate', isLessThan: Timestamp.now())
+            .get();
     return snapshot.docs.map((doc) => _fromFirestore(doc)).toList();
   }
 
   @override
   Future<List<TaskEntity>> getHighImpactPendingTasks(String userId) async {
-    final snapshot = await _tasksRef
-        .where('userId', isEqualTo: userId)
-        .where('isCompleted', isEqualTo: false)
-        .where('impactScore', isGreaterThanOrEqualTo: 7.0)
-        .get();
+    final snapshot =
+        await _tasksRef
+            .where('userId', isEqualTo: userId)
+            .where('isCompleted', isEqualTo: false)
+            .where('impactScore', isGreaterThanOrEqualTo: 7.0)
+            .get();
     return snapshot.docs.map((doc) => _fromFirestore(doc)).toList();
   }
 
@@ -114,15 +117,29 @@ class FirebaseTaskRepository implements TaskRepository {
         (e) => e.name == data['outcomeType'],
         orElse: () => OutcomeType.systemImprovement,
       ),
+      status: TaskStatus.values.firstWhere(
+        (e) => e.name == (data['status'] ?? 'todo'),
+        orElse: () => TaskStatus.todo,
+      ),
+      isPersonal: data['isPersonal'] as bool? ?? false,
+      occurrence: data['occurrence'] as String?,
+      reminderTimes: List<String>.from(data['reminderTimes'] ?? const []),
       isCompleted: data['isCompleted'] as bool? ?? false,
       deepWorkMinutes: data['deepWorkMinutes'] as int? ?? 0,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
-      dueDate: data['dueDate'] != null
-          ? (data['dueDate'] as Timestamp).toDate()
-          : null,
-      completedAt: data['completedAt'] != null
-          ? (data['completedAt'] as Timestamp).toDate()
-          : null,
+      dueDate:
+          data['dueDate'] != null
+              ? (data['dueDate'] as Timestamp).toDate()
+              : null,
+      startDate:
+          data['startDate'] != null
+              ? (data['startDate'] as Timestamp).toDate()
+              : null,
+      completedAt:
+          data['completedAt'] != null
+              ? (data['completedAt'] as Timestamp).toDate()
+              : null,
+      isProject: data['isProject'] as bool? ?? false,
     );
   }
 
@@ -137,15 +154,22 @@ class FirebaseTaskRepository implements TaskRepository {
       'energyRequired': task.energyRequired.name,
       'estimatedMinutes': task.estimatedMinutes,
       'outcomeType': task.outcomeType.name,
+      'status': task.status.name,
+      'isPersonal': task.isPersonal,
+      'occurrence': task.occurrence,
+      'reminderTimes': task.reminderTimes,
       'isCompleted': task.isCompleted,
       'deepWorkMinutes': task.deepWorkMinutes,
       'createdAt': Timestamp.fromDate(task.createdAt),
-      'dueDate': task.dueDate != null
-          ? Timestamp.fromDate(task.dueDate!)
-          : null,
-      'completedAt': task.completedAt != null
-          ? Timestamp.fromDate(task.completedAt!)
-          : null,
+      'dueDate':
+          task.dueDate != null ? Timestamp.fromDate(task.dueDate!) : null,
+      'startDate':
+          task.startDate != null ? Timestamp.fromDate(task.startDate!) : null,
+      'completedAt':
+          task.completedAt != null
+              ? Timestamp.fromDate(task.completedAt!)
+              : null,
+      'isProject': task.isProject,
     };
   }
 }

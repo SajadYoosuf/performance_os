@@ -7,6 +7,7 @@ import 'package:app/core/theme/app_text_styles.dart';
 import 'package:app/core/genui/genui_setup.dart';
 import 'package:app/features/tasks/presentation/providers/task_provider.dart';
 import 'package:app/features/dashboard/presentation/providers/dashboard_provider.dart';
+import 'package:app/features/reflection/presentation/providers/reflection_provider.dart';
 
 /// AI Coach screen — GenUI + RAG context + Speech-to-Text voice input.
 class AICoachScreen extends StatefulWidget {
@@ -97,26 +98,13 @@ class _AICoachScreenState extends State<AICoachScreen> {
 
     final taskProvider = context.read<TaskProvider>();
     final dashboardProvider = context.read<DashboardProvider>();
-
-    final contextBuf = StringBuffer();
-    contextBuf.writeln(taskProvider.buildTaskContextForAI());
-    contextBuf.writeln();
-    contextBuf.writeln('=== DASHBOARD SCORES ===');
-    contextBuf.writeln(
-      'Productivity: ${dashboardProvider.productivityScore.toStringAsFixed(1)}%',
-    );
-    contextBuf.writeln(
-      'Growth: ${dashboardProvider.growthScore.toStringAsFixed(1)}%',
-    );
-    contextBuf.writeln(
-      'Health: ${dashboardProvider.healthScore.toStringAsFixed(1)}%',
-    );
-    contextBuf.writeln(
-      'Overall: ${dashboardProvider.overallScore.toStringAsFixed(1)}%',
-    );
+    final reflectionProvider = context.read<ReflectionProvider>();
 
     _conversation = GenUiSetup.createConversation(
-      taskContext: contextBuf.toString(),
+      context: context,
+      taskContext: taskProvider.buildTaskContextForAI(),
+      dashboardContext: dashboardProvider.buildDashboardContextForAI(),
+      reflectionContext: reflectionProvider.buildReflectionContextForAI(),
       onSurfaceAdded: (SurfaceAdded event) {
         setState(() => _surfaceIds.add(event.surfaceId));
       },

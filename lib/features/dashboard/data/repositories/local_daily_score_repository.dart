@@ -43,6 +43,7 @@ class LocalDailyScoreRepository implements DailyScoreRepository {
 
   @override
   Future<void> saveDailyScore(DailyScoreEntity score) async {
+    if (_currentUserId != score.userId) _loadFromDisk(score.userId);
     final idx = _cache.indexWhere((s) => s.id == score.id);
     if (idx != -1) {
       _cache[idx] = score;

@@ -16,6 +16,7 @@ class ResponsiveScaffold extends StatelessWidget {
   final Widget? insightPanel;
   final String userName;
   final double dailyScore;
+  final Widget? floatingActionButton;
 
   const ResponsiveScaffold({
     super.key,
@@ -26,6 +27,7 @@ class ResponsiveScaffold extends StatelessWidget {
     this.insightPanel,
     this.userName = 'User',
     this.dailyScore = 0,
+    this.floatingActionButton,
   });
 
   @override
@@ -40,6 +42,7 @@ class ResponsiveScaffold extends StatelessWidget {
             insightPanel: insightPanel,
             userName: userName,
             dailyScore: dailyScore,
+            floatingActionButton: floatingActionButton,
           );
         } else if (constraints.maxWidth >= AppConstants.mobileBreakpoint) {
           return _TabletLayout(
@@ -49,12 +52,14 @@ class ResponsiveScaffold extends StatelessWidget {
             insightPanel: insightPanel,
             userName: userName,
             dailyScore: dailyScore,
+            floatingActionButton: floatingActionButton,
           );
         } else {
           return _MobileLayout(
             currentNavIndex: currentNavIndex,
             onNavTap: onNavTap,
             body: mobileBody,
+            floatingActionButton: floatingActionButton,
           );
         }
       },
@@ -67,17 +72,20 @@ class _MobileLayout extends StatelessWidget {
   final int currentNavIndex;
   final ValueChanged<int> onNavTap;
   final Widget body;
+  final Widget? floatingActionButton;
 
   const _MobileLayout({
     required this.currentNavIndex,
     required this.onNavTap,
     required this.body,
+    this.floatingActionButton,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: body,
+      floatingActionButton: floatingActionButton,
       bottomNavigationBar: BottomNavBar(
         currentIndex: currentNavIndex,
         onTap: onNavTap,
@@ -94,6 +102,7 @@ class _TabletLayout extends StatelessWidget {
   final Widget? insightPanel;
   final String userName;
   final double dailyScore;
+  final Widget? floatingActionButton;
 
   const _TabletLayout({
     required this.currentNavIndex,
@@ -102,6 +111,7 @@ class _TabletLayout extends StatelessWidget {
     this.insightPanel,
     this.userName = 'User',
     this.dailyScore = 0,
+    this.floatingActionButton,
   });
 
   @override
@@ -119,6 +129,7 @@ class _TabletLayout extends StatelessWidget {
           Expanded(child: body),
         ],
       ),
+      floatingActionButton: floatingActionButton,
     );
   }
 }
@@ -131,6 +142,7 @@ class _DesktopLayout extends StatelessWidget {
   final Widget? insightPanel;
   final String userName;
   final double dailyScore;
+  final Widget? floatingActionButton;
 
   const _DesktopLayout({
     required this.currentNavIndex,
@@ -139,6 +151,7 @@ class _DesktopLayout extends StatelessWidget {
     this.insightPanel,
     this.userName = 'User',
     this.dailyScore = 0,
+    this.floatingActionButton,
   });
 
   @override
@@ -165,6 +178,7 @@ class _DesktopLayout extends StatelessWidget {
             ),
         ],
       ),
+      floatingActionButton: floatingActionButton,
     );
   }
 }
